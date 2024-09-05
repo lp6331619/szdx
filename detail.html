@@ -1,0 +1,187 @@
+<!--
+ * @Descripttion: 
+ * @version: 1.0
+ * @Author: Teemor
+ * @Date: 2024-01-16 16:23:23
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- <link rel="icon" type="image/svg+xml" href="/vite.svg" /> -->
+    <link rel="stylesheet" href="./assets/css/index.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="./assets//js/commont.js"></script>
+    <title>土木工程系</title>
+  </head>
+  <body class="detail">
+    <div class="main">
+      <div class="header">
+        <div class="fr">
+          <span id="userName">江南</span>
+          <span class="sanj"></span>
+          <div class="select" id="select">
+            <div class="item">退出登录</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bg">
+      <div class="title">
+        <span id="name"></span>的课程
+        <div class="tips">COURSE LIST</div>
+      </div>
+    </div>
+    <form id="excelUploadForm">
+      <div class="timeAxis" id="timeAxis"></div>
+    </form>
+    <div class="footer">
+      Copyright©2024-2025 www.szdx.tech All rights reserved.
+      <a target="_blank" href="https://beian.miit.gov.cn">
+        粤ICP备2024180641号</a
+      >
+    </div>
+    <script>
+      $(function () {
+        const token = sessionStorage.getItem("token");
+        const user = sessionStorage.getItem("user")
+          ? JSON.parse(sessionStorage.getItem("user"))
+          : {};
+        getData();
+        $("#name").text(user.name);
+        //获取数据
+        function getData() {
+          if (!user.name) return;
+          $.ajax({
+            url: "http://api.szdx.tech/index/detail?teacher=" + user.name,
+            type: "get",
+            cors: true,
+            headers: {
+              Authorization: token,
+            },
+            dataType: "json",
+            success: (res) => {
+              const { code, msg, result } = res;
+              if (code === 200) {
+                const array = {};
+                let html = "";
+                if (result.length) {
+                  result.map((item) => {
+                    if (array[item.begin_year + " " + item.end_year]) {
+                      array[item.begin_year + " " + item.end_year][
+                        item.semester === 1 ? "上学期" : "下学期"
+                      ].push(item);
+                    } else {
+                      array[item.begin_year + " " + item.end_year] = {
+                        上学期: item.semester === 1 ? [item] : [],
+                        下学期: item.semester === 2 ? [item] : [],
+                      };
+                    }
+                  });
+                  for (let i in array) {
+                    const year = array[i];
+                    html += `
+                  <div class="yearBox">
+                      <div class="year">
+                        <div class="number">${i}</div>
+                      </div>
+                      ${Object.entries(year)
+                        .map(([s, data]) =>
+                          data.length
+                            ? `
+                          <div class="item">
+                            <div class="semester">${s}</div>
+                            <ul>
+                              ${Object.entries(data)
+                                .map(
+                                  ([f, item]) => `
+                                    <li >
+                                      <div class="title">${
+                                        item.name
+                                      } <span class="tips">(${
+                                    item.place
+                                  })</span></div>
+                                      <div class="right">
+                                        <div class="btnCom" >
+                                          <img src="./assets/images/upload.png" alt="" /> 上传
+                                          <input
+                                            class="excelFile"
+                                            type="file"
+                                            name="file"
+                                            id="${item.id}"
+                                            accept=".xls, .xlsx"
+                                          />
+                                        </div>
+                                        ${
+                                          item.is_upload
+                                            ? "<span class='green'>已上传</span>"
+                                            : "<span class='red'>未上传</span>"
+                                        }
+                                      </div>
+                                </li>
+                              `
+                                )
+                                .join("")}
+                            </ul>
+                        </div>`
+                            : ""
+                        )
+                        .join("")}
+                  </div>`;
+                  }
+                } else {
+                  html = `<div class="empty">暂时没有您的数据</div>`;
+                }
+                $("#timeAxis").html(html);
+              } else {
+                alert(msg);
+              }
+            },
+          }).fail((e) => {
+            if (e.status == 401) {
+              alert("您的登录过期了，请重新登录。");
+              clearToken();
+              window.location.href = "./index.html";
+            }
+          });
+        }
+        //上传
+        $("#timeAxis").on("change", ".btnCom .excelFile", function (e) {
+          uploadBtn($(this).prop("files")[0], $(this).attr("id"));
+        });
+        function uploadBtn(stl, id) {
+          // e.preventDefault();
+          // 创建FormData对象
+          const formData = new FormData();
+          formData.append("file", stl);
+          formData.append("id", id);
+          // AJAX请求上传文件
+          $.ajax({
+            url: "http://api.szdx.tech/index/upload", // 服务器上对应的上传处理URL
+            type: "POST",
+            data: formData,
+            headers: {
+              Authorization: token,
+            },
+            contentType: false, // 这两个参数需要设置为false和undefined
+            processData: false, // 以使jQuery不要处理发送的数据
+            success: function (response) {
+              alert("上传成功");
+              getData();
+            },
+            error: function (res) {
+              alert("请上传格式正确的excel文件！");
+            },
+          }).fail((e) => {
+            if (e.status == 401) {
+              alert("您的登录过期了，请重新登录。");
+              clearToken();
+              window.location.href = "./index.html";
+            }
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

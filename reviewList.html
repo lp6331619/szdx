@@ -1,0 +1,212 @@
+<!--
+ * @Descripttion: 
+ * @version: 1.0
+ * @Author: Teemor
+ * @Date: 2024-01-16 16:23:23
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- <link rel="icon" type="image/svg+xml" href="/vite.svg" /> -->
+    <link rel="stylesheet" href="./assets/css/index.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="./assets//js/commont.js"></script>
+    <title>土木工程系</title>
+  </head>
+  <body class="detail">
+    <div class="main">
+      <div class="header">
+        <div class="fl">
+          <a href="./down.html">考评下载</a>
+          <a href="./reviewList.html">审核列表</a>
+        </div>
+        <div class="fr">
+          <span id="userName">江南</span>
+          <span class="sanj"></span>
+          <div class="select" id="select">
+            <div class="item">退出登录</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bg">
+      <div class="title">
+        审核列表
+        <div class="tips">REVIEW LIST</div>
+      </div>
+    </div>
+    <div class="reviewList">
+      <table class="table" id="table">
+        <tr>
+          <th>教师名字</th>
+          <th>教师编码</th>
+          <th>电话号码</th>
+          <th>邮箱</th>
+          <th>操作</th>
+        </tr>
+      </table>
+    </div>
+    <div class="modal" id="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="close">&times;</span>
+          审核教师
+        </div>
+        <div class="modal-body" id="modal-body">
+          是否通过 <br />教师：<b>某某某</b> 教师编号：<b>1234</b>
+          <br />的申请？
+        </div>
+        <div class="modal-footer">
+          <div class="btn" id="reject">拒绝</div>
+          <div class="btn sub" id="pass">通过</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      Copyright©2024-2025 www.szdx.tech All rights reserved.
+      <a target="_blank" href="https://beian.miit.gov.cn">
+        粤ICP备2024180641号</a
+      >
+    </div>
+    <script>
+      $(function () {
+        const token = sessionStorage.getItem("token");
+        const user = sessionStorage.getItem("user")
+          ? JSON.parse(sessionStorage.getItem("user"))
+          : {};
+        // 只有管理员才能访问
+        if (user.id !== 1) {
+          window.location.href = "./index.html";
+          return;
+        }
+        let dataBox = [];
+        //获取数据
+        function getData() {
+          $("#table").html(`<tr>
+            <th>教师名字</th>
+            <th>教师编码</th>
+            <th>电话号码</th>
+            <th>邮箱</th>
+            <th>操作</th>
+          </tr>`);
+          dataBox = [];
+          $.ajax({
+            url: "http://api.szdx.tech/index/userList",
+            type: "get",
+            headers: {
+              Authorization: token,
+            },
+            dataType: "json",
+            success: (res) => {
+              const { code, msg, result } = res;
+              if (code === 200) {
+                const array = {};
+                let html = "";
+                if (result.length) {
+                  result.map((item, i) => {
+                    dataBox.push(item);
+                    html += `<tr>
+                    <td>${item.name}</td>
+                    <td>${item.teacher_no}</td>
+                    <td>${item.mobile}</td>
+                    <td>${item.email}</td>
+                    <td><button class="btn" data-index="${i}">审核</button></td>
+                  </tr>`;
+                  });
+                } else {
+                  html = `<tr>
+                  <td colspan="5">暂无数据</td>
+                </tr>`;
+                }
+                $("#table").append(html);
+              } else {
+                alert(msg);
+              }
+            },
+          }).fail((e) => {
+            if (e.status == 401) {
+              alert("您的登录过期了，请重新登录。");
+              clearToken();
+              window.location.href = "./index.html";
+            }
+          });
+        }
+        getData();
+
+        $("#modal .close").click(() => {
+          openClose();
+        });
+        function openClose() {
+          if ($("#modal").hasClass("active")) {
+            $("#modal").removeClass("active");
+          } else {
+            $("#modal").addClass("active");
+          }
+        }
+        let item = {};
+        $("#table").on("click", ".btn", function (e) {
+          const i = $(this).data("index");
+          item = dataBox[i];
+          const html = `
+          是否通过 <br />教师：<b>${item.name}</b> 教师编号：<b>${item.teacher_no}</b>
+          <br />的申请？
+          `;
+          $("#modal-body").html(html);
+          openClose();
+        });
+        //通过
+        $("#pass").click(() => {
+          userAudit(1);
+        });
+        // 不通过
+        $("#reject").click(() => {
+          userAudit(-1);
+        });
+        function userAudit(status) {
+          $.ajax({
+            url: "http://api.szdx.tech/index/userAudit",
+            type: "post",
+            data: JSON.stringify({
+              status: status,
+              id: item.id,
+            }),
+            headers: {
+              Authorization: token,
+            },
+            dataType: "json",
+            success: (res) => {
+              const { code, msg } = res;
+              if (code == 200) {
+                alert(msg);
+                getData();
+                openClose();
+              } else {
+                alert(msg);
+              }
+            },
+          }).fail((e) => {
+            if (e.status == 401) {
+              alert("您的登录过期了，请重新登录。");
+              clearToken();
+              window.location.href = "./index.html";
+            }
+          });
+        }
+
+        document.addEventListener("keydown", function (event) {
+          if (
+            event.key === "Escape" ||
+            event.key === "Esc" ||
+            event.keyCode === 27
+          ) {
+            console.log("ESC键被按下了。");
+            // 在这里添加你想要的处理逻辑
+            openClose();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
